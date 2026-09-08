@@ -1,9 +1,9 @@
 from pathlib import Path
 
-# This file lives at  <repo>/f1data/config.py
-#   Path(__file__)   -> ".../f1data/config.py"  (path to THIS file)
+# This file lives at  <repo>/fastf1stats/config.py
+#   Path(__file__)   -> ".../fastf1stats/config.py"  (path to THIS file)
 #   .resolve()       -> make it absolute, collapse ".." and symlinks
-#   .parent          -> ".../f1data"
+#   .parent          -> ".../fastf1stats"
 #   .parent          -> ".../"          <- the repo root
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -17,26 +17,26 @@ DATA_DIR = _REPO_ROOT / "data"
 FIRST_SEASON = 2018
 
 # output columns for df 
-SEASON_COLS = output_columns = [
-        "driver_number",
-        "abbreviation",
-        "driver_id",
-        "full_name",
-        "team_name",
-        "country_code",
-        "position",
-        "grid_position",
-        "status",
-        "points",
-        "laps",
-        "team_color",
-        "fastest_lap",
-        "session_type",
-        "event_date",
-        "round_number",
-        "country",
-        "location",
-        "event_name"
-    ]
+SEASON_COLS = [ 
+    "driver_number",
+    "abbreviation",
+    "driver_id",
+    "full_name",
+    "team_name",
+    "country_code",
+    "position",
+    "grid_position",
+    "status",
+    "points",
+    "laps",
+    "team_color",
+    "fastest_lap",
+    "session_type",
+    "event_date",
+    "round_number",
+    "country",
+    "location",
+    "event_name"
+]
 
 PITSTOP_COLS = ["driver_id", "lap", "stop", "time", "duration", "round_number", "event_name"]
