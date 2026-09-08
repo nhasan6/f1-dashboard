@@ -1,7 +1,10 @@
+import time
 import fastf1
+from fastf1.exceptions import RateLimitExceededError
 import pandas as pd
 
 from fastf1.ergast import Ergast
+RATE_LIMIT_DELAY = 1.0 # in seconds
 ergast = Ergast(result_type="pandas", auto_cast=True)
 
 def get_season(year: int):
@@ -55,7 +58,12 @@ def get_season(year: int):
                 quali["Country"] = country
                 quali["Location"] = location
                 quali["EventName"] = event_name
+
+                # handle NaN values (will occur when pd.concat is run)
+                quali["Points"] = 0 # no points are awarded during qualifying
                 session_dfs.append(quali)
+        except RateLimitExceededError:
+            raise
         except Exception as error:
             print(f"Qualifying data failed for round {round_num}: {error}")
 
@@ -80,6 +88,8 @@ def get_season(year: int):
                 race_df["Location"] = location
                 race_df["EventName"] = event_name
                 session_dfs.append(race_df)
+        except RateLimitExceededError:
+            raise
         except Exception as error:
             print(f"Race data failed for round {round_num}: {error}")
 
@@ -88,6 +98,8 @@ def get_season(year: int):
         except ValueError:
             # event has no sprint
             sprint_sess = None
+        except RateLimitExceededError:
+            raise
         except Exception as error: # unexpected error
             print(f"Sprint data failed for round {round_num}: {error}")
             sprint_sess = None
@@ -115,14 +127,18 @@ def get_season(year: int):
                     sprint["EventName"] = event_name
 
                     session_dfs.append(sprint)
+            except RateLimitExceededError:
+                raise
             except Exception as error:
                 # A sprint exists, but loading or processing failed
                 print(
                     f"Sprint data failed for round "
                     f"{round_num}: {error}"
                 )
-            
 
+        time.sleep(RATE_LIMIT_DELAY)
+
+        
     if not session_dfs:
         return pd.DataFrame(columns=output_columns)
     
@@ -165,7 +181,6 @@ def get_pitstops(year: int):
     session_dfs = []
     for _, event in schedule.iterrows(): 
         round_num = event.RoundNumber
-    
         try:
             response = ergast.get_pit_stops(year, round_num)
             if not response.content or response.content[0].empty:
@@ -175,9 +190,12 @@ def get_pitstops(year: int):
             curr_round_stops["EventName"] = event.EventName
 
             session_dfs.append(curr_round_stops)
+        except RateLimitExceededError:
+            raise
         except Exception as error:
             print(f"Couldn't load pit stops for round {round_num}: {error}")
 
+        time.sleep(RATE_LIMIT_DELAY)
     if not session_dfs:
         return pd.DataFrame(columns=output_columns)
     return pd.concat(session_dfs, ignore_index=True)
