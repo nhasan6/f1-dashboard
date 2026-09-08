@@ -28,7 +28,9 @@ def get_best_avg_finish(season_df: pd.DataFrame) -> Stat | None:
     if gp_df.empty:
         return None
 
-    NUM_ROUNDS = season_df["round_number"].max()
+    num_completed_rounds = season_df["round_number"].max()
+    MIN_ROUNDS_FOR_AVG = num_completed_rounds / 2
+
     per_driver = gp_df.groupby("driver_id").agg(
            avg_finish=("position", "mean"), 
            num_races=("position", "count"), # count excludes null values for position
@@ -38,7 +40,7 @@ def get_best_avg_finish(season_df: pd.DataFrame) -> Stat | None:
            abbreviation=("abbreviation", "first"),
            team_name=("team_name", "first"))
 
-    candidates = per_driver[per_driver["num_races"] >= NUM_ROUNDS / 2]
+    candidates = per_driver[per_driver["num_races"] >= MIN_ROUNDS_FOR_AVG]
     if candidates.empty:
         return None
 
@@ -220,7 +222,7 @@ def get_driver_with_most_wins(season_df: pd.DataFrame) -> Stat | None:
         team_name=max_row["team_name"]
     )  
 
-def get_highest_climber(season_df: pd.DataFrame) -> Stat | None:
+def get_biggest_comeback(season_df: pd.DataFrame) -> Stat | None:
     if season_df is None or season_df.empty:
         return None
     

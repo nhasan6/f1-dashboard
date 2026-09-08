@@ -1,7 +1,6 @@
 from fastf1stats.config import DATA_DIR, SEASON_COLS, PITSTOP_COLS
 import pandas as pd
 
-# need to update logic so returns empty pd.dataframe(relevantcolumns)
 # printing doesnt do anything --> consider logging
 
 def load_parquet(year: int, file_name):

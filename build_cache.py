@@ -1,5 +1,6 @@
-from f1data import ingest, config
+from fastf1stats import ingest, config
 from datetime import timedelta
+import time
 import fastf1
 import pyarrow.parquet as pq
 from fastf1.exceptions import RateLimitExceededError    
@@ -21,17 +22,17 @@ def is_safe_to_write(new_df, path):
         old_row_count = pf.metadata.num_rows
         new_row_count = len(new_df)
         return new_row_count >= old_row_count
-    except Exception as err:
-        print(f"Error accessing old file: {err}")
+    except Exception as e:
+        print(f"Error accessing old file: {e}")
         return True # if error accessing current file, just overwrite it 
 
 def refresh_year(year: int, year_dir: Path):
     try:
         season_df = ingest.get_season(year)
-    except RateLimitExceededError as err:
-        print(f"Rate limit hit for season {year}: {err}")
-    except Exception as err:
-        print(f"Failed to refresh season for {year}: {err}")
+    except RateLimitExceededError as e:
+        print(f"Rate limit hit for season {year}: {e}")
+    except Exception as e:
+        print(f"Failed to refresh season for {year}: {e}")
     else: 
         if is_safe_to_write(season_df, year_dir / f"season_{year}.parquet"):
             season_df.to_parquet(year_dir / f"season_{year}.parquet")
@@ -39,38 +40,40 @@ def refresh_year(year: int, year_dir: Path):
         else:
             print("Write skipped")
 
-    try:    
-        driver_df = ingest.get_drivers_standings(year)
-    except RateLimitExceededError as err:
-            print(f"Rate limit hit for driver standings {year}: {err}")
-    except Exception as err:
-        print(f"Failed to refresh driver standings for {year}: {err}")
-    else: 
-        if is_safe_to_write(driver_df, year_dir / f"driver_standings_{year}.parquet"):
-            driver_df.to_parquet(year_dir / f"driver_standings_{year}.parquet")
-            print(f"Refresh {year} driver standings successful")
-        else:
-            print("Write skipped")
+    # try:    
+    #     driver_df = ingest.get_driver_standings(year)
+    # except RateLimitExceededError as e:
+    #         print(f"Rate limit hit for driver standings {year}: {e}")
+    # except Exception as e:
+    #     print(f"Failed to refresh driver standings for {year}: {e}")
+    # else: 
+    #     if is_safe_to_write(driver_df, year_dir / f"driver_standings_{year}.parquet"):
+    #         driver_df.to_parquet(year_dir / f"driver_standings_{year}.parquet")
+    #         print(f"Refresh {year} driver standings successful")
+    #     else:
+    #         print("Write skipped")
 
-    try:    
-        constructor_df = ingest.get_constructors_standings(year)
-    except RateLimitExceededError as err:
-                print(f"Rate limit hit for constructor standings {year}: {err}")
-    except Exception as err:
-        print(f"Failed to refresh constructor standings for {year}: {err}")
-    else: 
-        if is_safe_to_write(constructor_df, year_dir / f"constructor_standings_{year}.parquet"):
-            constructor_df.to_parquet(year_dir / f"constructor_standings_{year}.parquet")
-            print(f"Refresh {year} constructor standings successful")
-        else:
-            print("Write skipped")
+    # try:    
+    #     constructor_df = ingest.get_constructor_standings(year)
+    # except RateLimitExceededError as e:
+    #             print(f"Rate limit hit for constructor standings {year}: {e}")
+    # except Exception as e:
+    #     print(f"Failed to refresh constructor standings for {year}: {e}")
+    # else: 
+    #     if is_safe_to_write(constructor_df, year_dir / f"constructor_standings_{year}.parquet"):
+    #         constructor_df.to_parquet(year_dir / f"constructor_standings_{year}.parquet")
+    #         print(f"Refresh {year} constructor standings successful")
+    #     else:
+    #         print("Write skipped")
+
+    time.sleep(15) # delay before querying API for pitstops 
 
     try:    
         pitstop_df = ingest.get_pitstops(year)
-    except RateLimitExceededError as err:
-        print(f"Rate limit hit for pitstops {year}: {err}")
-    except Exception as err:
-        print(f"Failed to refresh pitstops for {year}: {err}")
+    except RateLimitExceededError as e:
+        print(f"Rate limit hit for pitstops {year}: {e}")
+    except Exception as e:
+        print(f"Failed to refresh pitstops for {year}: {e}")
     else: 
         if is_safe_to_write(pitstop_df, year_dir / f"pitstops_{year}.parquet"):
             pitstop_df.to_parquet(year_dir / f"pitstops_{year}.parquet")
@@ -80,15 +83,16 @@ def refresh_year(year: int, year_dir: Path):
         
 current_year = pd.Timestamp.now().year
 # for year in range(config.FIRST_SEASON, current_year + 1):
-for year in range(2026, current_year + 1):
+for year in range(2023, 2025):
     year_dir = config.DATA_DIR / str(year)
     year_dir.mkdir(exist_ok=True, parents=True)    
 
     missing_parquet_files = (
         not (year_dir / f"season_{year}.parquet").exists() 
-        or not (year_dir / f"driver_standings_{year}.parquet").exists() 
-        or not (year_dir / f"constructor_standings_{year}.parquet").exists()
         or not (year_dir / f"pitstops_{year}.parquet").exists()
+
+        # or not (year_dir / f"driver_standings_{year}.parquet").exists() 
+        # or not (year_dir / f"constructor_standings_{year}.parquet").exists()
     )
 
     if missing_parquet_files:
@@ -113,3 +117,4 @@ for year in range(2026, current_year + 1):
         continue
 
     refresh_year(year, year_dir)
+    time.sleep(60) # wait a minute b4 querying for next year
