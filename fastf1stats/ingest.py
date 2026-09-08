@@ -2,6 +2,7 @@ import time
 import fastf1
 from fastf1.exceptions import RateLimitExceededError
 import pandas as pd
+from fastf1stats.config import SEASON_COLS, PITSTOP_COLS
 
 from fastf1.ergast import Ergast
 RATE_LIMIT_DELAY = 1.0 # in seconds
@@ -22,28 +23,6 @@ def get_fastest_laps(session, results):
             
 def get_season(year: int):
     schedule = fastf1.get_event_schedule(year, include_testing=False)
-
-    output_columns = [
-        "driver_number",
-        "abbreviation",
-        "driver_id",
-        "full_name",
-        "team_name",
-        "country_code",
-        "position",
-        "grid_position",
-        "status",
-        "points",
-        "laps",
-        "team_color",
-        "fastest_lap",
-        "session_type",
-        "event_date",
-        "round_number",
-        "country",
-        "location",
-        "event_name"
-    ]
 
     renamed_columns_mapping = {
             "DriverNumber" : "driver_number",
@@ -68,7 +47,7 @@ def get_season(year: int):
     }
 
     if schedule.empty: # given year's schedule dne
-        return pd.DataFrame(columns=output_columns)
+        return pd.DataFrame(columns=SEASON_COLS)
 
     session_dfs = []
     for _, event in schedule.iterrows():
@@ -99,8 +78,8 @@ def get_season(year: int):
                 session_dfs.append(quali)
         except RateLimitExceededError:
             raise
-        except Exception as error:
-            print(f"Qualifying data failed for round {round_num}: {error}")
+        except Exception as e:
+            print(f"Qualifying data failed for round {round_num}: {e}")
 
         try:
             gp = event.get_race()
@@ -122,8 +101,8 @@ def get_season(year: int):
                 session_dfs.append(race_df)
         except RateLimitExceededError:
             raise
-        except Exception as error:
-            print(f"Race data failed for round {round_num}: {error}")
+        except Exception as e:
+            print(f"Race data failed for round {round_num}: {e}")
 
         try:
             sprint_sess = event.get_sprint()
@@ -132,8 +111,8 @@ def get_season(year: int):
             sprint_sess = None
         except RateLimitExceededError:
             raise
-        except Exception as error: # unexpected error
-            print(f"Sprint data failed for round {round_num}: {error}")
+        except Exception as e: # unexpected error
+            print(f"Sprint data failed for round {round_num}: {e}")
             sprint_sess = None
 
 
@@ -158,17 +137,17 @@ def get_season(year: int):
                     session_dfs.append(sprint)
             except RateLimitExceededError:
                 raise
-            except Exception as error:
+            except Exception as e:
                 # A sprint exists, but loading or processing failed
                 print(
                     f"Sprint data failed for round "
-                    f"{round_num}: {error}"
+                    f"{round_num}: {e}"
                 )
 
         time.sleep(RATE_LIMIT_DELAY)
 
     if not session_dfs:
-        return pd.DataFrame(columns=output_columns)
+        return pd.DataFrame(columns=SEASON_COLS)
     
     season_df = pd.concat(session_dfs, ignore_index=True)
 
@@ -187,45 +166,44 @@ def get_season(year: int):
     )
     return season_df.sort_values(["event_date", "session_type"]).reset_index(drop=True)
 
-def get_constructor_standings(year: int):
-    output_columns = ["position", "points", "wins", "constructor_name", "constructor_id"]
-    renamed_columns_mapping = {"constructorName" : "constructor_name", "constructorId" : "constructor_id" }
+# def get_constructor_standings(year: int):
+#     output_columns = ["position", "points", "wins", "constructor_name", "constructor_id"]
+#     renamed_columns_mapping = {"constructorName" : "constructor_name", "constructorId" : "constructor_id" }
 
-    response = ergast.get_constructor_standings(year)
-    if not response.content or response.content[0].empty:
-        return pd.DataFrame(columns=output_columns)
-    df = response.content[0].copy()
+#     response = ergast.get_constructor_standings(year)
+#     if not response.content or response.content[0].empty:
+#         return pd.DataFrame(columns=output_columns)
+#     df = response.content[0].copy()
 
-    # clean df 
-    df = df.drop(columns=["constructorUrl"], errors="ignore") # errors = ignore means skip column if dne instead of raising an error
-    df = df.rename(columns=renamed_columns_mapping)
-    return df
+#     # clean df 
+#     df = df.drop(columns=["constructorUrl"], errors="ignore") # errors = ignore means skip column if dne instead of raising an error
+#     df = df.rename(columns=renamed_columns_mapping)
+#     return df
 
-def get_driver_standings(year: int):
-    output_columns = [
-        "position", "points", "wins", "driver_number", "driver_code",
-        "given_name", "family_name", "date_of_birth", "driver_nationality",
-        "constructor_name", "driver_id",
-    ]
+# def get_driver_standings(year: int):
+#     output_columns = [
+#         "position", "points", "wins", "driver_number", "driver_code",
+#         "given_name", "family_name", "date_of_birth", "driver_nationality",
+#         "constructor_name", "driver_id",
+#     ]
 
-    renamed_columns_mapping = {"driverNumber": "driver_number", "driverCode": "driver_code", "givenName": "given_name", "familyName": "family_name", "dateOfBirth": "date_of_birth", "driverNationality" : "driver_nationality", "driverId":"driver_id"}
-    response = ergast.get_driver_standings(year)
-    if not response.content or response.content[0].empty:
-        return pd.DataFrame(columns=output_columns)
-    df = response.content[0].copy()
+#     renamed_columns_mapping = {"driverNumber": "driver_number", "driverCode": "driver_code", "givenName": "given_name", "familyName": "family_name", "dateOfBirth": "date_of_birth", "driverNationality" : "driver_nationality", "driverId":"driver_id"}
+#     response = ergast.get_driver_standings(year)
+#     if not response.content or response.content[0].empty:
+#         return pd.DataFrame(columns=output_columns)
+#     df = response.content[0].copy()
 
-    # clean df
-    df["constructor_name"] = df["constructorNames"].str[0] # remove list brackets from team name
-    df = df.drop(columns=["constructorUrls", "driverUrl", "constructorNationalities", "constructorNames", "constructorIds", "positionText"], errors="ignore")
-    return df.rename(columns=renamed_columns_mapping)
+#     # clean df
+#     df["constructor_name"] = df["constructorNames"].str[0] # remove list brackets from team name
+#     df = df.drop(columns=["constructorUrls", "driverUrl", "constructorNationalities", "constructorNames", "constructorIds", "positionText"], errors="ignore")
+#     return df.rename(columns=renamed_columns_mapping)
 
 def get_pitstops(year: int):
-    output_columns = ["driver_id", "lap", "stop", "time", "duration", "round_number", "event_name"]
     renamed_columns_mapping = {"driverId" : "driver_id","RoundNumber" : "round_number", "EventName" : "event_name"}
     
     schedule = fastf1.get_event_schedule(year, include_testing=False)
     if schedule.empty: # given year's schedule dne
-        return pd.DataFrame(columns=output_columns)
+        return pd.DataFrame(columns=PITSTOP_COLS)
 
     session_dfs = []
     for _, event in schedule.iterrows(): 
@@ -241,12 +219,12 @@ def get_pitstops(year: int):
             session_dfs.append(curr_round_stops)
         except RateLimitExceededError:
             raise
-        except Exception as error:
-            print(f"Couldn't load pit stops for round {round_num}: {error}")
+        except Exception as e:
+            print(f"Couldn't load pit stops for round {round_num}: {e}")
 
         time.sleep(RATE_LIMIT_DELAY * 2)
     if not session_dfs:
-        return pd.DataFrame(columns=output_columns)
+        return pd.DataFrame(columns=PITSTOP_COLS)
     
     df = pd.concat(session_dfs, ignore_index=True)
     # clean df
