@@ -7,31 +7,66 @@ from fastf1.ergast import Ergast
 RATE_LIMIT_DELAY = 1.0 # in seconds
 ergast = Ergast(result_type="pandas", auto_cast=True)
 
+def get_fastest_laps(session, results):
+    fastest_laps = {}
+
+    for abbreviation in results["Abbreviation"]:
+        try:
+            fastest_laps[abbreviation] = session.laps.pick_drivers(abbreviation).pick_fastest()["LapTime"]
+        except RateLimitExceededError:
+            raise
+        except Exception:
+            fastest_laps[abbreviation] = pd.NaT
+
+    return results["Abbreviation"].map(fastest_laps)
+            
 def get_season(year: int):
     schedule = fastf1.get_event_schedule(year, include_testing=False)
 
     output_columns = [
-        "DriverNumber",
-        "Abbreviation",
-        "DriverId",
-        "FullName",
-        "TeamName",
-        "CountryCode",
-        "Position",
-        "GridPosition",
-        "Status",
-        "Points",
-        "Laps",
-        "TeamColor",
-        "FastestLap",
-        "SessionType",
-        "EventDate",
-        "RoundNumber",
-        "Country",
-        "Location",
-        "EventName",
+        "driver_number",
+        "abbreviation",
+        "driver_id",
+        "full_name",
+        "team_name",
+        "country_code",
+        "position",
+        "grid_position",
+        "status",
+        "points",
+        "laps",
+        "team_color",
+        "fastest_lap",
+        "session_type",
+        "event_date",
+        "round_number",
+        "country",
+        "location",
+        "event_name"
     ]
-    
+
+    renamed_columns_mapping = {
+            "DriverNumber" : "driver_number",
+            "Abbreviation" : "abbreviation",
+            "DriverId" : "driver_id",
+            "FullName" : "full_name",
+            "TeamName" : "team_name",
+            "CountryCode" : "country_code",
+            "Position" : "position",
+            "GridPosition" : "grid_position",
+            "Status" : "status",
+            "Points" : "points",
+            "Laps" : "laps",
+            "TeamColor" : "team_color",
+            "FastestLap" : "fastest_lap",
+            "SessionType" : "session_type",
+            "EventDate" : "event_date",
+            "RoundNumber" : "round_number",
+            "Country" : "country",
+            "Location" : "location",
+            "EventName" : "event_name"
+    }
+
     if schedule.empty: # given year's schedule dne
         return pd.DataFrame(columns=output_columns)
 
@@ -74,11 +109,8 @@ def get_season(year: int):
             race_df = gp.results
             if not race_df.empty:
                 race_df = race_df[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps", "TeamColor"]].copy()
-                for idx, driver in race_df.iterrows():
-                    try:
-                        race_df.loc[idx, "FastestLap"] = gp.laps.pick_drivers(driver["Abbreviation"]).pick_fastest()["LapTime"]
-                    except Exception: # need to update this to the NAT value whatever
-                        race_df.loc[idx, "FastestLap"] = pd.NaT # if fastest lap throws an error or is not available
+
+                race_df["FastestLap"] = get_fastest_laps(gp, race_df)
                 race_df["SessionType"] = "R"
                 race_df["EventDate"] = date
 
@@ -112,11 +144,8 @@ def get_season(year: int):
                 sprint = sprint_sess.results
                 if not sprint.empty:
                     sprint = sprint[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps", "TeamColor"]].copy()
-                    for idx, driver in sprint.iterrows():
-                        try:
-                            sprint.loc[idx, "FastestLap"] = sprint_sess.laps.pick_drivers(driver["Abbreviation"]).pick_fastest()["LapTime"]
-                        except Exception: # change to deal with timing value error NaTs
-                            sprint.loc[idx, "FastestLap"] = pd.NaT # if fastest lap throws an error or is not available
+
+                    sprint["FastestLap"] = get_fastest_laps(sprint_sess, sprint)
                     sprint["SessionType"] = "S"
                     sprint["EventDate"] = date
 
@@ -138,42 +167,62 @@ def get_season(year: int):
 
         time.sleep(RATE_LIMIT_DELAY)
 
-        
     if not session_dfs:
         return pd.DataFrame(columns=output_columns)
     
     season_df = pd.concat(session_dfs, ignore_index=True)
 
+    # clean df 
+    season_df = season_df.rename(columns=renamed_columns_mapping)
+
+    season_df["driver_number"] = pd.to_numeric(season_df["driver_number"], errors="coerce")
+    season_df[["position", "grid_position", "laps"]] = season_df[["position", "grid_position", "laps"]].astype("Int64")
+    season_df[["abbreviation", "driver_id", "full_name", "team_name", "country_code", "country", "location", "event_name", "status", "team_color"]] = season_df[["abbreviation", "driver_id", "full_name", "team_name", "country_code", "country", "location", "event_name", "status", "team_color"]].astype("string")
+    season_df["points"] = season_df["points"].astype("float64")
     session_order = ["Q", "S", "R"]
-    season_df["SessionType"] = pd.Categorical(
-        season_df["SessionType"],
+    season_df["session_type"] = pd.Categorical(
+        season_df["session_type"],
         categories=session_order,
         ordered=True
     )
-    return season_df.sort_values(["EventDate", "SessionType"]).reset_index(drop=True)
+    return season_df.sort_values(["event_date", "session_type"]).reset_index(drop=True)
 
-def get_constructors_standings(year: int):
-    output_columns = ["position", "points", "wins", "constructorName", "constructorId"]
+def get_constructor_standings(year: int):
+    output_columns = ["position", "points", "wins", "constructor_name", "constructor_id"]
+    renamed_columns_mapping = {"constructorName" : "constructor_name", "constructorId" : "constructor_id" }
+
     response = ergast.get_constructor_standings(year)
     if not response.content or response.content[0].empty:
         return pd.DataFrame(columns=output_columns)
-    df = response.content[0] 
-    return df.drop(columns=["constructorUrl"], errors="ignore") # errors = ignore means skip column if dne instead of raising an error
+    df = response.content[0].copy()
 
-def get_drivers_standings(year: int):
+    # clean df 
+    df = df.drop(columns=["constructorUrl"], errors="ignore") # errors = ignore means skip column if dne instead of raising an error
+    df = df.rename(columns=renamed_columns_mapping)
+    return df
+
+def get_driver_standings(year: int):
     output_columns = [
-        "position", "points", "wins", "driverNumber", "driverCode",
-        "givenName", "familyName", "dateOfBirth", "nationality",
-        "constructorNames", "driverId",
+        "position", "points", "wins", "driver_number", "driver_code",
+        "given_name", "family_name", "date_of_birth", "driver_nationality",
+        "constructor_name", "driver_id",
     ]
+
+    renamed_columns_mapping = {"driverNumber": "driver_number", "driverCode": "driver_code", "givenName": "given_name", "familyName": "family_name", "dateOfBirth": "date_of_birth", "driverNationality" : "driver_nationality", "driverId":"driver_id"}
     response = ergast.get_driver_standings(year)
     if not response.content or response.content[0].empty:
         return pd.DataFrame(columns=output_columns)
-    df = response.content[0]
-    return df.drop(columns=["constructorUrls", "driverUrl"], errors="ignore")
+    df = response.content[0].copy()
+
+    # clean df
+    df["constructor_name"] = df["constructorNames"].str[0] # remove list brackets from team name
+    df = df.drop(columns=["constructorUrls", "driverUrl", "constructorNationalities", "constructorNames", "constructorIds", "positionText"], errors="ignore")
+    return df.rename(columns=renamed_columns_mapping)
 
 def get_pitstops(year: int):
-    output_columns = ["driverId", "lap", "stop", "time", "duration", "RoundNumber", "EventName"]
+    output_columns = ["driver_id", "lap", "stop", "time", "duration", "round_number", "event_name"]
+    renamed_columns_mapping = {"driverId" : "driver_id","RoundNumber" : "round_number", "EventName" : "event_name"}
+    
     schedule = fastf1.get_event_schedule(year, include_testing=False)
     if schedule.empty: # given year's schedule dne
         return pd.DataFrame(columns=output_columns)
@@ -198,4 +247,7 @@ def get_pitstops(year: int):
         time.sleep(RATE_LIMIT_DELAY * 2)
     if not session_dfs:
         return pd.DataFrame(columns=output_columns)
-    return pd.concat(session_dfs, ignore_index=True)
+    
+    df = pd.concat(session_dfs, ignore_index=True)
+    # clean df
+    return df.rename(columns=renamed_columns_mapping)
