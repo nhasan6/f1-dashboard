@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual Env
+.venv/
+f1-env/
+
+# OS
+.DS_Store
+
+# fastf1 on-disk cache — large and churny, never commit
+fastf1-cache/
+.fastf1cache/
+
+# Streamlit local secrets 
+.streamlit/secrets.toml
+
+# Scratch / logs
+*.log
