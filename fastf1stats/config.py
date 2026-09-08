@@ -15,3 +15,28 @@ DATA_DIR = _REPO_ROOT / "data"
 
 # earliest season the dashboard supports 
 FIRST_SEASON = 2018
+
+# output columns for df 
+SEASON_COLS = output_columns = [
+        "driver_number",
+        "abbreviation",
+        "driver_id",
+        "full_name",
+        "team_name",
+        "country_code",
+        "position",
+        "grid_position",
+        "status",
+        "points",
+        "laps",
+        "team_color",
+        "fastest_lap",
+        "session_type",
+        "event_date",
+        "round_number",
+        "country",
+        "location",
+        "event_name"
+    ]
+
+PITSTOP_COLS = ["driver_id", "lap", "stop", "time", "duration", "round_number", "event_name"]
