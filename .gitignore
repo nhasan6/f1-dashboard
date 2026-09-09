@@ -19,5 +19,9 @@ fastf1-cache/
 # Streamlit local secrets 
 .streamlit/secrets.toml
 
+# agent configurations
+.agents
+.claude
+
 # Scratch / logs
 *.log
