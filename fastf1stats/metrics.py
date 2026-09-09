@@ -1,24 +1,38 @@
-from dataclasses import dataclass
-from datetime import timedelta
-from fastf1stats import load, config
+from fastf1stats.models import Stat
 import pandas as pd
-
-@dataclass
-class Stat:
-    value: float | int | timedelta 
-    unit: str | None = None
-    driver_name: str | None = None
-    driver_abbrv: str | None = None
-    team_name: str | None = None
-
-    # if applicable
-    round_number: int | None = None 
-    event_name: str | None = None
-    context: str | None = None
 
 # NOTE FIX/TO-DO --> creaye a mapping from driver_id --> full name or driver code bc pitstops doesn't have it!!!
 # NOTE Fix/to-do in V2 --> this logic ignores ties. choosing first row for all options
 # NOTE fix later, sprint vs race filter (boolean parameter)
+
+
+def _rounds(season_df: pd.DataFrame, session_type: str = "R") -> list[int]:
+    """Every round number that holds a session of this type, ascending."""
+    col = season_df.loc[season_df["session_type"] == session_type, "round_number"]
+    return sorted(col.dropna().unique().tolist())
+
+
+def _cumulative_trend(event_rows: pd.DataFrame, rounds: list[int]) -> list[float]:
+    """Running count of `event_rows` (e.g. one driver's wins) across `rounds`.
+    Rounds with no matching row contribute 0, so the line steps up only on the
+    rounds the thing actually happened."""
+    if not rounds:
+        return []
+    per_round = event_rows.groupby("round_number").size().reindex(rounds, fill_value=0)
+    return per_round.cumsum().astype(float).tolist()
+
+
+def _team_hex(rows: pd.DataFrame) -> str | None:
+    """First non-null team_color in `rows`, normalised to '#rrggbb'. Q rows carry
+    no colour, so this returns None for pole stats."""
+    if "team_color" not in rows.columns:
+        return None
+    vals = rows["team_color"].dropna()
+    if vals.empty:
+        return None
+    val = str(vals.iloc[0]).strip()
+    return "#" + val.lstrip("#") if val else None
+
 
 def get_best_avg_finish(season_df: pd.DataFrame) -> Stat | None:
     if season_df is None or season_df.empty:
@@ -48,12 +62,17 @@ def get_best_avg_finish(season_df: pd.DataFrame) -> Stat | None:
     winner_id = candidates["avg_finish"].idxmin() # min index is the driver id
     winner_row = candidates.loc[winner_id]
 
+    drv_races = gp_df[gp_df["driver_id"] == winner_id].sort_values("round_number")
+
     return Stat(
         value=float(winner_row["avg_finish"]),
         unit="average",
         driver_name=winner_row["full_name"],
         driver_abbrv=winner_row["abbreviation"],
-        team_name=winner_row["team_name"]
+        team_name=winner_row["team_name"],
+        team_color=_team_hex(drv_races),
+        # raw finishing position per race - a dip = a good day
+        trend=drv_races["position"].dropna().astype(float).tolist(),
     )
     
 def get_fastest_pit_stop(pitstop_df: pd.DataFrame) -> Stat | None:
@@ -64,13 +83,20 @@ def get_fastest_pit_stop(pitstop_df: pd.DataFrame) -> Stat | None:
     fastest_id = pitstop_df["duration"].idxmin()
     fastest_row = pitstop_df.loc[fastest_id]
 
+    drv_stops = (
+        pitstop_df[pitstop_df["driver_id"] == fastest_row["driver_id"]]
+        .sort_values("round_number")
+    )
+
     return Stat(
         value=fastest_row["duration"],
         unit="s",
         driver_name=fastest_row["driver_id"],
         round_number=fastest_row["round_number"],
         event_name=fastest_row["event_name"],
-        context=f"Lap {fastest_row['lap']}"
+        context=f"Lap {fastest_row['lap']}",
+        # this driver's stop times across the season, in seconds
+        trend=drv_stops["duration"].dt.total_seconds().tolist(),
     )
 
 def get_team_with_most_podiums(season_df: pd.DataFrame) -> Stat | None:
@@ -85,11 +111,14 @@ def get_team_with_most_podiums(season_df: pd.DataFrame) -> Stat | None:
 
     team_podiums = podium_df.groupby("team_name").size()
     winner_team = team_podiums.idxmax()
+    winner_rows = podium_df[podium_df["team_name"] == winner_team]
 
     return Stat(
         value=int(team_podiums.loc[winner_team]),
         unit="podiums",
-        team_name=winner_team
+        team_name=winner_team,
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "R")),
     )
 
 def get_driver_with_most_podiums(season_df: pd.DataFrame) -> Stat | None:
@@ -112,13 +141,16 @@ def get_driver_with_most_podiums(season_df: pd.DataFrame) -> Stat | None:
 
     winner_index = driver_podiums["num_podiums"].idxmax()
     winner_row = driver_podiums.loc[winner_index]
+    winner_rows = podium_df[podium_df["driver_id"] == winner_index]
 
     return Stat(
         value=int(winner_row["num_podiums"]),
         unit="podiums",
         driver_name=winner_row["full_name"],
         driver_abbrv=winner_row["abbreviation"],
-        team_name=winner_row["team_name"]
+        team_name=winner_row["team_name"],
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "R")),
     )
 
 def get_team_with_most_points(season_df: pd.DataFrame) -> Stat | None:
@@ -185,11 +217,14 @@ def get_team_with_most_wins(season_df: pd.DataFrame) -> Stat | None:
 
     team_wins = wins_df.groupby("team_name").size()
     winner_team = team_wins.idxmax()
+    winner_rows = wins_df[wins_df["team_name"] == winner_team]
 
     return Stat(
         value=int(team_wins.loc[winner_team]),
         unit="wins",
-        team_name=winner_team
+        team_name=winner_team,
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "R")),
     )
 
 def get_driver_with_most_wins(season_df: pd.DataFrame) -> Stat | None:
@@ -206,7 +241,7 @@ def get_driver_with_most_wins(season_df: pd.DataFrame) -> Stat | None:
 
     driver_wins = wins_df.groupby("driver_id").agg(
         num_wins=("position", "size"),
-        
+
         # context
         full_name=("full_name", "first"),
         abbreviation=("abbreviation", "first"),
@@ -215,14 +250,17 @@ def get_driver_with_most_wins(season_df: pd.DataFrame) -> Stat | None:
 
     max_index = driver_wins["num_wins"].idxmax()
     max_row = driver_wins.loc[max_index]
-    
+    winner_rows = wins_df[wins_df["driver_id"] == max_index]
+
     return Stat(
         value=int(max_row["num_wins"]),
         unit="wins",
         driver_name=max_row["full_name"],
         driver_abbrv=max_row["abbreviation"],
-        team_name=max_row["team_name"]
-    )  
+        team_name=max_row["team_name"],
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "R")),
+    )
 
 def get_biggest_comeback(season_df: pd.DataFrame) -> Stat | None:
     if season_df is None or season_df.empty:
@@ -242,9 +280,11 @@ def get_biggest_comeback(season_df: pd.DataFrame) -> Stat | None:
         driver_name=highest_climber_row["full_name"],
         driver_abbrv=highest_climber_row["abbreviation"],
         team_name=highest_climber_row["team_name"],
+        team_color=_team_hex(results_df.loc[[highest_climber_index]]),
+        # single-race stat - no season series to plot
         round_number=highest_climber_row["round_number"],
         event_name=highest_climber_row["event_name"],
-        context=f"final position: {highest_climber_row["position"]}"
+        context=f"final position: {highest_climber_row['position']}"
     )
 
 def get_driver_with_most_poles(season_df: pd.DataFrame) -> Stat | None:
@@ -269,13 +309,16 @@ def get_driver_with_most_poles(season_df: pd.DataFrame) -> Stat | None:
 
     winner_index = driver_poles["num_poles"].idxmax()
     winner_row = driver_poles.loc[winner_index]
+    winner_rows = poles_df[poles_df["driver_id"] == winner_index]
 
     return Stat(
         value=int(winner_row["num_poles"]),
         unit="poles",
         driver_name=winner_row["full_name"],
         driver_abbrv=winner_row["abbreviation"],
-        team_name=winner_row["team_name"]
+        team_name=winner_row["team_name"],
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "Q")),
     )
 
 def get_team_with_most_poles(season_df: pd.DataFrame) -> Stat | None:
@@ -292,9 +335,12 @@ def get_team_with_most_poles(season_df: pd.DataFrame) -> Stat | None:
 
     team_poles = poles_df.groupby("team_name").size()
     winner_team = team_poles.idxmax()
+    winner_rows = poles_df[poles_df["team_name"] == winner_team]
 
     return Stat(
         value=int(team_poles.loc[winner_team]),
         unit="poles",
-        team_name=winner_team
+        team_name=winner_team,
+        team_color=_team_hex(winner_rows),
+        trend=_cumulative_trend(winner_rows, _rounds(season_df, "Q")),
     )

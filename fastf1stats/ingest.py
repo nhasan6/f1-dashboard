@@ -166,38 +166,6 @@ def get_season(year: int):
     )
     return season_df.sort_values(["event_date", "session_type"]).reset_index(drop=True)
 
-# def get_constructor_standings(year: int):
-#     output_columns = ["position", "points", "wins", "constructor_name", "constructor_id"]
-#     renamed_columns_mapping = {"constructorName" : "constructor_name", "constructorId" : "constructor_id" }
-
-#     response = ergast.get_constructor_standings(year)
-#     if not response.content or response.content[0].empty:
-#         return pd.DataFrame(columns=output_columns)
-#     df = response.content[0].copy()
-
-#     # clean df 
-#     df = df.drop(columns=["constructorUrl"], errors="ignore") # errors = ignore means skip column if dne instead of raising an error
-#     df = df.rename(columns=renamed_columns_mapping)
-#     return df
-
-# def get_driver_standings(year: int):
-#     output_columns = [
-#         "position", "points", "wins", "driver_number", "driver_code",
-#         "given_name", "family_name", "date_of_birth", "driver_nationality",
-#         "constructor_name", "driver_id",
-#     ]
-
-#     renamed_columns_mapping = {"driverNumber": "driver_number", "driverCode": "driver_code", "givenName": "given_name", "familyName": "family_name", "dateOfBirth": "date_of_birth", "driverNationality" : "driver_nationality", "driverId":"driver_id"}
-#     response = ergast.get_driver_standings(year)
-#     if not response.content or response.content[0].empty:
-#         return pd.DataFrame(columns=output_columns)
-#     df = response.content[0].copy()
-
-#     # clean df
-#     df["constructor_name"] = df["constructorNames"].str[0] # remove list brackets from team name
-#     df = df.drop(columns=["constructorUrls", "driverUrl", "constructorNationalities", "constructorNames", "constructorIds", "positionText"], errors="ignore")
-#     return df.rename(columns=renamed_columns_mapping)
-
 def get_pitstops(year: int):
     renamed_columns_mapping = {"driverId" : "driver_id","RoundNumber" : "round_number", "EventName" : "event_name"}
     
