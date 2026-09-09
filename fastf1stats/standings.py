@@ -3,7 +3,7 @@ from fastf1stats import load
 
 def championships_progression(session_df: pd.DataFrame, group_col: str):
 
-    output_colmns = ["round_number", "team_name", "points", "event_name", "location", "entity_label", "total_points"]
+    output_colmns = ["round_number", "team_name", "points", "event_name", "team_color", "location", "entity_label", "total_points"]
     if group_col == "driver_id":
         output_colmns.append("driver_id")
 
@@ -15,7 +15,8 @@ def championships_progression(session_df: pd.DataFrame, group_col: str):
     basic_data = {
         "points": ("points", "sum"),
         "event_name": ("event_name", "first"),
-        "location": ("location", "first")
+        "location": ("location", "first"),
+        "team_color": ("team_color", "first")
     }
 
     if group_col == "driver_id":

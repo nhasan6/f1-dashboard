@@ -50,6 +50,7 @@ def get_best_avg_finish(season_df: pd.DataFrame) -> Stat | None:
 
     return Stat(
         value=float(winner_row["avg_finish"]),
+        unit="average",
         driver_name=winner_row["full_name"],
         driver_abbrv=winner_row["abbreviation"],
         team_name=winner_row["team_name"]
@@ -65,6 +66,7 @@ def get_fastest_pit_stop(pitstop_df: pd.DataFrame) -> Stat | None:
 
     return Stat(
         value=fastest_row["duration"],
+        unit="s",
         driver_name=fastest_row["driver_id"],
         round_number=fastest_row["round_number"],
         event_name=fastest_row["event_name"],
