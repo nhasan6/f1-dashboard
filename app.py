@@ -1,7 +1,6 @@
 import streamlit as st
 from fastf1stats import load
 from fastf1stats import metrics, standings, charts
-from datetime import timedelta
 import components
 from fastf1stats.config import FIRST_SEASON
 import pandas as pd
@@ -13,6 +12,14 @@ def load_year(year: int):
 @st.cache_data()
 def load_pitstops_in_year(year: int):
     return load.load_pitstops(year)
+
+@st.cache_data()
+def load_championships_progression(season_df: pd.DataFrame, group_col: str):
+    return standings.championships_progression(season_df, group_col)
+
+@st.cache_data()
+def load_championships_positions(progression_df: pd.DataFrame):
+    return standings.championship_positions(progression_df)
 
 @st.cache_data()
 def headline_stats(season_df: pd.DataFrame):
@@ -33,24 +40,32 @@ st.set_page_config(page_title="Formula 1 Live Dashboard", layout="wide") # TODO 
 st.title("Formula 1 Dashboard")
 st.write("'The stopwatch never lies' - Toto Wolff")
 year = st.selectbox("Year", [year for year in range(pd.Timestamp.now().year, FIRST_SEASON - 1, -1)]) # first option is selected by default (needs to be most recent year)
+
+# dataframes
 season_df = load_year(year)
 pitstop_df = load_pitstops_in_year(year)
-headline_stats = headline_stats(season_df)
-st.subheader(f"{year} Season Overview")
 
-# each spec: (title, driver stat, team stat)
+# computed data
+headline_stats = headline_stats(season_df)
+
+# consts 
+
+# each spec: (title, driver stat, team stat) - row 1
 split_specs = [
     ("Most Wins", headline_stats["driver_wins"], headline_stats["team_wins"]),
     ("Most Podiums", headline_stats["driver_podiums"], headline_stats["team_podiums"]),
     ("Most Poles", headline_stats["driver_poles"], headline_stats["team_poles"])
 ]
 
-# each spec: (title, stat, icon)
+# each spec: (title, stat, icon) - row 2
 single_specs = [
     ("Best Average Finish", metrics.get_best_avg_finish(season_df), ":material/target:"),
-    ("Biggest Comeback", metrics.get_biggest_comeback(season_df), ":material/rocket_launch:"),
+    ("Biggest Comeback", metrics.get_biggest_comeback(season_df), ":material/trending_up:"),
     ("Fastest Pit Stop", metrics.get_fastest_pit_stop(pitstop_df), ":material/timer:")
 ] 
+
+# stats grid  
+st.subheader(f"{year} Season Overview")
 
 for col, (title, d, t) in zip(st.columns(3), split_specs):
     with col:
@@ -60,13 +75,15 @@ for col, (title, s, icon) in zip(st.columns(3), single_specs):
     with col: 
         components.single_stat_card(title, s, icon)
 
+# championship graphs
 st.subheader("Championship Standings")
-options_dict = {"Driver" : "driver_id", "Constructor" : "team_name"}
-championship_type = st.selectbox("Type", options_dict.keys())
+championship_options = {"Driver" : "driver_id", "Constructor" : "team_name"}
+championship_type = st.selectbox("Type", championship_options.keys())
 
-prog1 = standings.championships_progression(season_df, options_dict[championship_type])
-# fig = charts.get_points_evolution_graph(prog, options_dict[championship_type])
+points_df = load_championships_progression(season_df, championship_options[championship_type])
+positions_df = load_championships_positions(points_df)
 
-prog = standings.championship_positions(prog1)
-fig = charts.get_rankings_evolution_graph(prog, options_dict[championship_type])
-st.plotly_chart(fig, width="stretch", theme="streamlit")
+points_fig = charts.get_points_evolution_graph(points_df, championship_options[championship_type])
+st.plotly_chart(points_fig, width="stretch", theme="streamlit", key="points_graph")
+positions_fig = charts.get_rankings_evolution_graph(positions_df, championship_options[championship_type])
+st.plotly_chart(positions_fig, width="stretch", theme="streamlit", key="positions_graph")
