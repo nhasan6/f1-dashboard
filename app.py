@@ -74,10 +74,11 @@ for col, (title, s, icon) in zip(st.columns(3), single_specs):
 # championship graphs
 st.subheader("Championship Standings", divider="gray")
 championship_options = {"Driver" : "driver_id", "Constructor" : "team_name"}
-championship_type = st.segmented_control(
-    "Championship", list(championship_options), default="Driver",
-    label_visibility="collapsed",
-) or "Driver"
+with st.container(horizontal=True, horizontal_alignment="right"):
+    championship_type = st.segmented_control(
+        "Championship", list(championship_options), default="Driver",
+        label_visibility="collapsed",
+    ) or "Driver"
 
 points_df = standings.championships_progression(season_df, championship_options[championship_type])
 positions_df = standings.championship_positions(points_df)
