@@ -22,8 +22,8 @@ showWidgetBorder = true
 # ---------------------------------------------------------------------------
 [theme.dark]
 backgroundColor = "#0A0E14"
-secondaryBackgroundColor = "#161B22"
-borderColor = "#2A313C"
+secondaryBackgroundColor = "#1C232E"   # was #161B22 - lifted so cards read as raised surfaces
+borderColor = "#39414D"                # was #2A313C - a touch brighter so the hairline is visible
 textColor = "#E6E6E6"
 primaryColor = "#2DD4BF"
 linkColor = "#5EEAD4"
@@ -34,8 +34,8 @@ chartCategoricalColors = ["#2DD4BF", "#F87171", "#FBBF24", "#818CF8", "#4ADE80",
 
 [theme.dark.sidebar]
 backgroundColor = "#0D1117"
-secondaryBackgroundColor = "#161B22"
-borderColor = "#2A313C"
+secondaryBackgroundColor = "#1C232E"
+borderColor = "#39414D"
 textColor = "#E6E6E6"
 primaryColor = "#2DD4BF"
 
