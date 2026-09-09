@@ -23,7 +23,7 @@ def _empty_figure(message: str) -> go.Figure:
 
 # group_col is either "driver_id" or "team_name"
 # graph_type is either "position" or "points"
-def get_line_graph(df: pd.DataFrame, group_col: str, graph_type) ->go.Figure:
+def get_line_graph(df: pd.DataFrame, group_col: str, graph_type: str) -> go.Figure:
 
     if df is None or df.empty:
             return _empty_figure("No data for this season yet.")
@@ -38,14 +38,14 @@ def get_line_graph(df: pd.DataFrame, group_col: str, graph_type) ->go.Figure:
     position_graph_config = {
         "y_value" : "position",
         "y_label" : "Position",
-        "ascending_y_labels" : True,
+        "order_ascending" : True,
         "reverse_y_axis" : True 
     }
     
     points_graph_config = {
         "y_value" : "total_points",
         "y_label" : "Points",
-        "ascending_y_labels" : False,
+        "order_ascending" : False,
         "reverse_y_axis" : False
     }
 
@@ -69,7 +69,9 @@ def get_line_graph(df: pd.DataFrame, group_col: str, graph_type) ->go.Figure:
         .tail(1)
     ) 
     entity_order = (
-        last_rows.sort_values(graph_config["y_value"], ascending=graph_config["ascending_y_labels"])["entity_label"].to_list() 
+        last_rows.sort_values(
+            graph_config["y_value"], 
+            ascending=graph_config["order_ascending"])["entity_label"].to_list() 
     )
 
     # one stable colour per entity (fastf1's team_color drifts round to round)
@@ -87,7 +89,7 @@ def get_line_graph(df: pd.DataFrame, group_col: str, graph_type) ->go.Figure:
         category_orders={"entity_label": entity_order}, 
         markers=True,
         labels=graph_labels,
-        title=f"{entity_noun} {graph_config["y_label"]}",
+        title=f"{entity_noun} {graph_config['y_label']}",
     )
 
     fig.update_traces(line=dict(width=2), marker=dict(size=8))
@@ -95,7 +97,7 @@ def get_line_graph(df: pd.DataFrame, group_col: str, graph_type) ->go.Figure:
     if graph_config["reverse_y_axis"]:
         # reversed range puts P1 on top; the half-unit pad keeps the top and
         # bottom markers off the plot edge.
-        lo, hi = df["position"].min(), df["position"].max()
+        lo, hi = df[graph_config["y_value"]].min(), df[graph_config["y_value"]].max()
         fig.update_yaxes(dtick=1, range=[hi + 0.5, lo - 0.5])
 
     fig.update_xaxes(dtick=1) # only whole #s 

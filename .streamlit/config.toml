@@ -1,0 +1,63 @@
+# Visual target: prd.md section 10. Dark is the primary theme; light is a
+# deliberate counterpart, not an auto-inversion. Both are defined, so the
+# theme toggle in the app's settings menu is available to the user.
+
+[theme]
+base = "dark"                       # default mode on first load
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap"
+baseFontSize = 14
+baseRadius = "14px"                 # prd.md: card radius ~14-16px
+linkUnderline = false
+showWidgetBorder = true
+
+# ---------------------------------------------------------------------------
+# Dark  (primary)  -- prd.md palette
+#   page background  #0A0E14
+#   card / input     #161B22
+#   hairline border  #2A313C
+#   primary text     #E6E6E6
+#   muted text       #8B949E
+#   accent (teal)    #2DD4BF
+# ---------------------------------------------------------------------------
+[theme.dark]
+backgroundColor = "#0A0E14"
+secondaryBackgroundColor = "#161B22"
+borderColor = "#2A313C"
+textColor = "#E6E6E6"
+primaryColor = "#2DD4BF"
+linkColor = "#5EEAD4"
+codeBackgroundColor = "#161B22"
+codeTextColor = "#E6E6E6"
+grayColor = "#8B949E"
+chartCategoricalColors = ["#2DD4BF", "#F87171", "#FBBF24", "#818CF8", "#4ADE80", "#F472B6", "#38BDF8"]
+
+[theme.dark.sidebar]
+backgroundColor = "#0D1117"
+secondaryBackgroundColor = "#161B22"
+borderColor = "#2A313C"
+textColor = "#E6E6E6"
+primaryColor = "#2DD4BF"
+
+# ---------------------------------------------------------------------------
+# Light  (counterpart)  -- same roles, re-picked for a light surface.
+#   primaryColor is a deeper teal so white button text stays legible.
+# ---------------------------------------------------------------------------
+[theme.light]
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F8"
+borderColor = "#D8DEE4"
+textColor = "#1F2328"
+primaryColor = "#0F766E"
+linkColor = "#0F766E"
+codeBackgroundColor = "#F4F6F8"
+codeTextColor = "#1F2328"
+grayColor = "#6B7280"
+chartCategoricalColors = ["#0F766E", "#DC2626", "#D97706", "#4F46E5", "#16A34A", "#DB2777", "#0284C7"]
+
+[theme.light.sidebar]
+backgroundColor = "#F4F6F8"
+secondaryBackgroundColor = "#EBEEF2"
+borderColor = "#D8DEE4"
+textColor = "#1F2328"
+primaryColor = "#0F766E"
