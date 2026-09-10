@@ -59,6 +59,12 @@ def get_season(year: int):
         try:
             quali = event.get_qualifying()
             date = quali.date
+
+            # stop if the next event is in the future
+            now = pd.Timestamp.now(tz = quali.data.tz)
+            if quali.date > now:
+                break
+
             quali.load(laps=False, telemetry=False, weather=False, messages=False)
             quali = quali.results
 
