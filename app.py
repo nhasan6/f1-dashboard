@@ -1,9 +1,8 @@
 import streamlit as st
-from fastf1stats import load
-from fastf1stats import metrics, standings, charts
-import ui.components as components
-from fastf1stats.config import FIRST_SEASON
 import pandas as pd
+import ui.components as components
+from fastf1stats import load, metrics, standings, charts
+from fastf1stats.config import FIRST_SEASON
 
 @st.cache_data()
 def load_year(year: int):
