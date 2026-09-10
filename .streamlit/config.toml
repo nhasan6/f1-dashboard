@@ -1,18 +1,14 @@
-# Visual target: prd.md section 10. Dark is the primary theme; light is a
-# deliberate counterpart, not an auto-inversion. Both are defined, so the
-# theme toggle in the app's settings menu is available to the user.
-
 [theme]
-base = "dark"                       # default mode on first load
+base = "dark"  # default mode on first load
 font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap"
 baseFontSize = 14
-baseRadius = "14px"                 # prd.md: card radius ~14-16px
+baseRadius = "14px"                 
 linkUnderline = false
 showWidgetBorder = true
 
 # ---------------------------------------------------------------------------
-# Dark  (primary)  -- prd.md palette
+# Dark  (primary) 
 #   page background  #0A0E14
 #   card / input     #161B22
 #   hairline border  #2A313C
@@ -22,8 +18,8 @@ showWidgetBorder = true
 # ---------------------------------------------------------------------------
 [theme.dark]
 backgroundColor = "#0A0E14"
-secondaryBackgroundColor = "#1C232E"   # was #161B22 - lifted so cards read as raised surfaces
-borderColor = "#39414D"                # was #2A313C - a touch brighter so the hairline is visible
+secondaryBackgroundColor = "#1C232E"   
+borderColor = "#39414D"                
 textColor = "#E6E6E6"
 primaryColor = "#2DD4BF"
 linkColor = "#5EEAD4"
