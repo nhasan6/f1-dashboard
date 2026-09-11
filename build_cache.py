@@ -38,11 +38,11 @@ def refresh_season(year: int, year_dir: Path) -> bool:
         print(f"Failed to refresh season for {year}: {e}")
         return False
     else: 
-        # if is_safe_to_write(season_df, year_dir / f"season_{year}.parquet"):
-        season_df.to_parquet(year_dir / f"season_{year}.parquet")
-        print(f"Refresh {year} season successful")
-        # else:
-        #     print("Write skipped")
+        if is_safe_to_write(season_df, year_dir / f"season_{year}.parquet"):
+            season_df.to_parquet(year_dir / f"season_{year}.parquet")
+            print(f"Refresh {year} season successful")
+        else:
+            print("Write skipped")
         return True 
 
 def refresh_pitstops(year: int, year_dir: Path) -> bool:
