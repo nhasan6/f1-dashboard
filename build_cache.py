@@ -40,7 +40,7 @@ def refresh_season(year: int, year_dir: Path) -> bool:
     else: 
         # if is_safe_to_write(season_df, year_dir / f"season_{year}.parquet"):
         season_df.to_parquet(year_dir / f"season_{year}.parquet")
-        #     print(f"Refresh {year} season successful")
+        print(f"Refresh {year} season successful")
         # else:
         #     print("Write skipped")
         return True 
