@@ -23,7 +23,8 @@ def get_fastest_laps(session, results):
             
 def get_season(year: int):
     schedule = fastf1.get_event_schedule(year, include_testing=False)
-
+    current_date = pd.Timestamp.now(tz="UTC")
+    
     renamed_columns_mapping = {
             "DriverNumber" : "driver_number",
             "Abbreviation" : "abbreviation",
@@ -56,14 +57,13 @@ def get_season(year: int):
         location = event.Location
         event_name = event.EventName
 
+        # skip loading if weekend hasn't occurred 
+        if event.Session5Date > current_date:
+            continue 
+
         try:
             quali = event.get_qualifying()
             date = quali.date
-
-            # stop if the next event is in the future
-            now = pd.Timestamp.now(tz = quali.data.tz)
-            if quali.date > now:
-                break
 
             quali.load(laps=False, telemetry=False, weather=False, messages=False)
             quali = quali.results
