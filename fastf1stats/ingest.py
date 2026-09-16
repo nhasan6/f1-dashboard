@@ -1,5 +1,6 @@
 import time
 import fastf1
+import fastf1.plotting
 from fastf1.exceptions import RateLimitExceededError
 import pandas as pd
 from fastf1stats.config import SEASON_COLS, PITSTOP_COLS
@@ -20,7 +21,26 @@ def get_fastest_laps(session, results):
             fastest_laps[abbreviation] = pd.NaT
 
     return results["Abbreviation"].map(fastest_laps)
-            
+
+def get_team_colors(session, team_names):
+    # fastf1's own maintained color table, keyed by team name for this
+    # session's season - avoids depending on the live-timing TeamColor
+    # field on session.results, which can come back blank (e.g. all of
+    # the 2026 season so far).
+    colors = {}
+    for team_name in team_names:
+        try:
+            colors[team_name] = fastf1.plotting.get_team_color(
+                team_name, session, colormap="official"
+            )
+        except RateLimitExceededError:
+            raise
+        except Exception:
+            colors[team_name] = None
+
+    return colors
+
+
 def get_season(year: int):
     schedule = fastf1.get_event_schedule(year, include_testing=False)
     current_date = pd.Timestamp.now(tz="UTC")
@@ -62,18 +82,22 @@ def get_season(year: int):
             continue 
 
         try:
-            quali = event.get_qualifying()
-            date = quali.date
+            quali_session = event.get_qualifying()
+            date = quali_session.date
 
-            quali.load(laps=False, telemetry=False, weather=False, messages=False)
-            quali = quali.results
+            quali_session.load(laps=False, telemetry=False, weather=False, messages=False)
+            quali = quali_session.results
 
             if not quali.empty:
                 quali = quali[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position"]].copy()
                 quali["SessionType"] = "Q"
                 quali["EventDate"] = date
 
-                # general metadata 
+                quali["TeamColor"] = quali["TeamName"].map(
+                    get_team_colors(quali_session, quali["TeamName"].unique())
+                )
+
+                # general metadata
                 quali["RoundNumber"] = round_num
                 quali["Country"] = country
                 quali["Location"] = location
@@ -93,9 +117,12 @@ def get_season(year: int):
             gp.load(laps=True, telemetry=False, weather=False, messages=False)
             race_df = gp.results
             if not race_df.empty:
-                race_df = race_df[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps", "TeamColor"]].copy()
+                race_df = race_df[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps"]].copy()
 
                 race_df["FastestLap"] = get_fastest_laps(gp, race_df)
+                race_df["TeamColor"] = race_df["TeamName"].map(
+                    get_team_colors(gp, race_df["TeamName"].unique())
+                )
                 race_df["SessionType"] = "R"
                 race_df["EventDate"] = date
 
@@ -128,9 +155,12 @@ def get_season(year: int):
                 sprint_sess.load(laps=True, telemetry=False, weather=False, messages=False)
                 sprint = sprint_sess.results
                 if not sprint.empty:
-                    sprint = sprint[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps", "TeamColor"]].copy()
+                    sprint = sprint[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position", "GridPosition", "Status", "Points", "Laps"]].copy()
 
                     sprint["FastestLap"] = get_fastest_laps(sprint_sess, sprint)
+                    sprint["TeamColor"] = sprint["TeamName"].map(
+                        get_team_colors(sprint_sess, sprint["TeamName"].unique())
+                    )
                     sprint["SessionType"] = "S"
                     sprint["EventDate"] = date
 
