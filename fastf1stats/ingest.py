@@ -1,6 +1,8 @@
+import json
 import time
+from importlib.resources import files
+
 import fastf1
-import fastf1.plotting
 from fastf1.exceptions import RateLimitExceededError
 import pandas as pd
 from fastf1stats.config import SEASON_COLS, PITSTOP_COLS
@@ -8,6 +10,13 @@ from fastf1stats.config import SEASON_COLS, PITSTOP_COLS
 from fastf1.ergast import Ergast
 RATE_LIMIT_DELAY = 1.0 # in seconds
 ergast = Ergast(result_type="pandas", auto_cast=True)
+
+# fastf1's own bundled, per-season team color table (no live API involved -
+# a static file shipped inside the installed package). Read once at import
+# time, same as fastf1.plotting does internally.
+_TEAM_COLOR_TABLE = json.loads(
+    files("fastf1.plotting").joinpath("constants.json").read_text(encoding="utf-8")
+)
 
 def get_fastest_laps(session, results):
     fastest_laps = {}
@@ -22,21 +31,32 @@ def get_fastest_laps(session, results):
 
     return results["Abbreviation"].map(fastest_laps)
 
-def get_team_colors(session, team_names):
-    # fastf1's own maintained color table, keyed by team name for this
-    # session's season - avoids depending on the live-timing TeamColor
-    # field on session.results, which can come back blank (e.g. all of
-    # the 2026 season so far).
+def get_team_colors(year: int, team_names):
+    # Resolved entirely offline against fastf1's bundled color table -
+    # avoids both the live-timing TeamColor field on session.results
+    # (blank for all of 2026) and fastf1.plotting.get_team_color(), which
+    # requires a live Session and triggers its own separate live-timing
+    # driver-info fetch that isn't reliable this season either.
+    year_teams = _TEAM_COLOR_TABLE.get(str(year), {}).get("teams", {})
+
     colors = {}
     for team_name in team_names:
-        try:
-            colors[team_name] = fastf1.plotting.get_team_color(
-                team_name, session, colormap="official"
-            )
-        except RateLimitExceededError:
-            raise
-        except Exception:
-            colors[team_name] = None
+        identifier = team_name.lower()
+        for word in ("racing", "team", "f1", "scuderia"):
+            identifier = identifier.replace(word, "")
+        identifier = " ".join(identifier.split())
+
+        team_consts = year_teams.get(identifier)
+        if team_consts is None:
+            for normalized_name, candidate in year_teams.items():
+                if (
+                    identifier == candidate["short_name"].lower()
+                    or identifier in normalized_name
+                ):
+                    team_consts = candidate
+                    break
+
+        colors[team_name] = team_consts["colors"]["official"] if team_consts else None
 
     return colors
 
@@ -82,11 +102,11 @@ def get_season(year: int):
             continue 
 
         try:
-            quali_session = event.get_qualifying()
-            date = quali_session.date
+            quali = event.get_qualifying()
+            date = quali.date
 
-            quali_session.load(laps=False, telemetry=False, weather=False, messages=False)
-            quali = quali_session.results
+            quali.load(laps=False, telemetry=False, weather=False, messages=False)
+            quali = quali.results
 
             if not quali.empty:
                 quali = quali[["DriverNumber", "Abbreviation", "DriverId", "FullName", "TeamName", "CountryCode", "Position"]].copy()
@@ -94,7 +114,7 @@ def get_season(year: int):
                 quali["EventDate"] = date
 
                 quali["TeamColor"] = quali["TeamName"].map(
-                    get_team_colors(quali_session, quali["TeamName"].unique())
+                    get_team_colors(year, quali["TeamName"].unique())
                 )
 
                 # general metadata
@@ -121,7 +141,7 @@ def get_season(year: int):
 
                 race_df["FastestLap"] = get_fastest_laps(gp, race_df)
                 race_df["TeamColor"] = race_df["TeamName"].map(
-                    get_team_colors(gp, race_df["TeamName"].unique())
+                    get_team_colors(year, race_df["TeamName"].unique())
                 )
                 race_df["SessionType"] = "R"
                 race_df["EventDate"] = date
@@ -159,7 +179,7 @@ def get_season(year: int):
 
                     sprint["FastestLap"] = get_fastest_laps(sprint_sess, sprint)
                     sprint["TeamColor"] = sprint["TeamName"].map(
-                        get_team_colors(sprint_sess, sprint["TeamName"].unique())
+                        get_team_colors(year, sprint["TeamName"].unique())
                     )
                     sprint["SessionType"] = "S"
                     sprint["EventDate"] = date
